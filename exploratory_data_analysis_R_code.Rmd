@@ -1,0 +1,580 @@
+---
+title: 'Used cars dataset: Exploratory Data Analysis'
+author: "Sabbella Prasanna"
+date: "3/10/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(caret)
+library(corrplot)
+library(dplyr)
+library(readxl)
+library(ggridges)
+library(lattice)
+library(plotly)
+```
+
+\newpage
+The used cars data set has been sourced from kaggle, uploaded by a freelance data scientist who prepared this data from various sources on personal interest. 
+https://www.kaggle.com/lepchenkov/usedcarscatalog
+
+
+# Scope
+
+
+## CONTEXT
+
+- Carvana is an online platform that allows users to sell/trade their cars. The marketing strategists of Carvana knows that the success and popularity of their online brand highly depends on the number of customers who sell and also buy used cars through Carvana.
+- It is often difficult for any customer to decide on what's the best sale price of their car and would end up either selling it at a very lower price than at what it could have been sold or at a rather higher price than usual. In both cases either of the buying or selling customers are dissatisfied. This leaves a negating effect on the Carvana's customer base.
+- In order to attract both selling and buying customers the strategists came up with a unique idea, to invest in launching a new feature on their app/website that allows the customer to know what could be the best price to sell his/her car.
+
+## NEED
+
+- The strategists wanted to suggest the selling price to their new selling customers in a way that attracts both buyers and sellers so that it can end up as a win-win for both parties.
+- They would like to investigate on what major aspects/features of a car does a buyer really spends his money and then match these parameters with the car that is about to be listed on sale and make a rightful selling price suggestion.
+
+## VISION
+
+- The strategists will make use of already available data history of sold out cars and investigate what features are really causing a shift in the selling price and measure the sensitivity of change for these features so that they could build a predictive model for predicting the price. This predicted price is then used as a selling price suggestion in the new feature.
+
+## OUTCOME
+
+- The predictive model will be summarized as a report to the board members of Carvana who could further test/validate the price suggestion feature (Probably as a trial feature for one quarter) before its launch. This sheds light on how impactful the feature is on increasing the customer base of Carvana.
+- Once convinced, they would invest higher volumes of budget into the project for gathering more data and make the app more reliable.
+
+
+
+```{r message=FALSE, warning=FALSE}
+Preprocessed_cars <- read_excel("Preprocessed_cars.xlsx")
+```
+
+\newpage
+# Introduction to the data variables
+- Number of cars (Discrete Numeric): Number of cars on sale.
+- transmission (Categorical): There are two types of transmission...automatic & manual
+- color (Categorical): Color of the outer body of the car
+- body_type (Categorical): Body type of the car
+- engine_type (Categorical): There are two types of engines...Gasoline and Diesel
+- engine_fuel (Categorical): Different types of fuels
+- drivetrain (Categorical): 3 types of drives are present..Front, Rear and All wheel drive
+- location_region (Categorical):There are 6 different locations where the cars are listed on sale.
+- has_warranty(Categorical):Shows whether a car on sale has a warranty
+- (Predictor)price_usd(usd)(continuous Numeric):Sale price of the car
+- year_produced (Discrete Numeric):Year when the car got manufactured.
+- duration_listed (days) (Continuous Numeric):For how long was the deal on sale?
+- engine_capacity (Liters) (Continuous Numeric):Volume swept by all pistons in one engine
+- odometer_value (Kilometers) (Continuous Numeric):Total distance covered by the car.
+- feature_0 to 9: Features such as Alloy wheels and other accessories in the car that adds on more price to it.
+# Summary is attached at the end of the document.
+
+
+
+
+
+<p>Number of cars (Discrete Numeric): Number of cars on sale.\
+manufacturer_name (Categorical): Brand name
+
+<p>- Volkswagen owns the highest share while Saab the lowest
+
+```{r message=FALSE, warning=FALSE}
+cars=Preprocessed_cars %>% group_by(manufacturer_name) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+ggplot(data=cars,aes(x=reorder(manufacturer_name, -count),y=count))+
+  ggtitle("MANUFACTURERS")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_segment(aes(xend=manufacturer_name,y=0, yend=count))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+
+\newpage
+<p>transmission (Categorical): There are two types of transmission...automatic & manual\
+<p>- Most brands are giving equal importance to manual and auto trains but manual cars are more frequent
+```{r message=FALSE, warning=FALSE}
+transmission=Preprocessed_cars %>% group_by(manufacturer_name,transmission) %>%
+  summarize(count = n()) %>%
+  ungroup(transmission)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=transmission,aes(x=reorder(manufacturer_name, -m_count),y=count, fill = transmission))+
+  ggtitle("TRANSMISSION")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>color (Categorical): Color of the outer body of the car\
+<p>- More obsessed with Black, White, Silver, Blue
+
+```{r message=FALSE, warning=FALSE}
+
+ggplot(Preprocessed_cars, 
+       aes(x = price_usd, 
+           y = color)) +
+  geom_density_ridges() + 
+  theme_ridges() +
+  labs("Highway mileage by auto class") +
+  theme(legend.position = "none")
+```
+\newpage
+<p>body_type (Categorical): Body type of the car\
+<p>- Universal, Hatchback and Sedan are the most common 
+```{r message=FALSE, warning=FALSE}
+body_type=Preprocessed_cars %>% group_by(transmission,body_type) %>%
+  summarize(count = n()) %>%
+  ungroup(body_type)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=body_type,aes(x=reorder(transmission, -m_count),y=count))+
+  ggtitle("Introduction")+
+  xlab("transmission")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  facet_wrap(~body_type)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>engine_type (Categorical): There are two types of engines...Gasoline and Diesel\
+<p>- Gasoline engine is most frequently used
+```{r message=FALSE, warning=FALSE}
+engine_type=Preprocessed_cars %>% group_by(manufacturer_name,engine_type) %>%
+  summarize(count = n()) %>%
+  ungroup(engine_type)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=engine_type,aes(x=reorder(manufacturer_name, -m_count),y=count, fill = engine_type))+
+  ggtitle("Introduction")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>engine_fuel (Categorical): Different types of fuels\
+<p>- Gasoline and Diesel are frequently consumed.
+```{r message=FALSE, warning=FALSE}
+engine_fuel=Preprocessed_cars %>% group_by(manufacturer_name,engine_fuel) %>%
+  summarize(count = n()) %>%
+  ungroup(engine_fuel)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=engine_fuel,aes(x=reorder(manufacturer_name, -m_count),y=count, fill = engine_fuel))+
+  ggtitle("Introduction")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>General Knowledge: What fuels are fed in what engines\
+```{r message=FALSE, warning=FALSE}
+engine_fuel_r=Preprocessed_cars %>% group_by(engine_type,engine_fuel) %>%
+  summarize(count = n()) %>%
+  ungroup(engine_fuel)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=engine_fuel_r,aes(x=reorder(engine_fuel,-m_count),y=count, fill = engine_type))+
+  ggtitle("Introduction")+
+  xlab("engine_fuel")+
+  ylab("engine_type")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>drivetrain (Categorical): 3 types of drives...Front, Rear and All wheel drive\
+<p>- Front wheel drive is the most common.
+```{r message=FALSE, warning=FALSE}
+drivetrain=Preprocessed_cars %>% group_by(manufacturer_name,drivetrain) %>%
+  summarize(count = n()) %>%
+  ungroup(drivetrain)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=drivetrain,aes(x=reorder(manufacturer_name, -m_count),y=count, fill = drivetrain))+
+  ggtitle("Introduction")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>location_region (Categorical): There are 6 different locations where the cars are listed on sale.\
+```{r message=FALSE, warning=FALSE}
+location_region=Preprocessed_cars %>% group_by(manufacturer_name,location_region) %>%
+  summarize(count = n()) %>%
+  ungroup(location_region)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=location_region,aes(x=reorder(manufacturer_name, -m_count),y=count, fill = location_region))+
+  ggtitle("Introduction")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),legend.position="none")
+```
+\newpage
+<p>has_warranty(Categorical):Shows whether a car on sale has a warranty.\
+<p>- Most brands don't except for Skoda
+```{r message=FALSE, warning=FALSE}
+has_warranty=Preprocessed_cars %>% group_by(manufacturer_name,has_warranty) %>%
+  summarize(count = n()) %>%
+  ungroup(has_warranty)%>% 
+  mutate(m_count = sum(count))%>%
+  arrange(desc(m_count))
+ggplot(data=has_warranty,aes(x=reorder(manufacturer_name, -m_count),y=count, fill = has_warranty))+
+  ggtitle("Introduction")+
+  xlab("manufacturer_name")+
+  ylab("Number of cars")+
+  geom_histogram(colour="white",stat="identity")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+## Exploring numerical variables
+
+<p>price_usd (usd) (continuous Numeric):Sale price of the car\
+<p>- Most cars are listed below 10,000 usd.
+<p>- Green line marks the mean, 6925.35 usd.
+```{r message=FALSE, warning=FALSE}
+
+mean_price_usd=mean(Preprocessed_cars$price_usd)
+
+ggplot(Preprocessed_cars,aes(x=price_usd))+
+  ggtitle("Price_usd")+
+  geom_histogram(color="white",bins=60)+
+  geom_vline(aes(xintercept = mean_price_usd),col='green',size=1)+
+  xlab("Price_usd")+
+  ylab("Number of cars")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+ggplot(Preprocessed_cars,aes(x=log(price_usd)))+
+  ggtitle("Price_usd logarithmic")+
+  geom_histogram(color="white",bins=60)+
+  xlab("log_price_usd")+
+  ylab("Number of cars")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>year_produced (Discrete Numeric):Year when the car got manufactured.\
+- The histogram follows two waves.
+```{r message=FALSE, warning=FALSE}
+
+ggplot(Preprocessed_cars,aes(x=year_produced))+
+  ggtitle("How old are the cars?")+
+  geom_histogram(color="white",bins=60)+
+  xlab("Year_produced")+
+  ylab("Number of cars")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>duration_listed (days) (Continuous Numeric):For how long was the deal on sale?\
+```{r message=FALSE, warning=FALSE}
+ggplot(Preprocessed_cars,aes(x=duration_listed))+
+  ggtitle("How fast was the sale? (days)")+
+  geom_histogram(color="white",bins=60)+
+  xlab("duration_listed")+
+  ylab("Number of cars")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>engine_capacity (Liters) (Continuous Numeric):Volume swept by all pistons in one engine\
+<p>- GK: More the capacity lesser is the mileage for a particular engine.
+```{r message=FALSE, warning=FALSE}
+ggplot(Preprocessed_cars,aes(x=engine_capacity))+
+  ggtitle("Engine Capacity (Ltrs)")+
+  geom_histogram(color="white",bins=60)+
+  xlab("engine_capacity")+
+  ylab("Number of cars")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+<p>odometer_value (Kilometers) (Continuous Numeric):Total distance covered by the car.\
+```{r message=FALSE, warning=FALSE}
+ggplot(Preprocessed_cars,aes(x=odometer_value))+
+  ggtitle("How much used was the car? (Kms)")+
+  geom_histogram(color="white",bins=60)+
+  xlab("odometer_value")+
+  ylab("Number of cars")+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+\newpage
+##Diving more into the price_usd variable 
+
+<p>Price distribution\
+```{r message=FALSE, warning=FALSE}
+
+i1=Preprocessed_cars %>% group_by(manufacturer_name) %>%
+  summarize(count=n(),mean_price=mean(price_usd))
+ggplot(data=i1,aes(x=reorder(manufacturer_name, -mean_price),y=mean_price))+
+  ggtitle("Mean prices")+
+  xlab("manufacturer_name")+
+  ylab("price_usd")+
+  geom_point(color="white",aes(size=count))+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+i2=Preprocessed_cars %>% 
+  group_by(manufacturer_name) %>%
+  summarize(price = price_usd)%>%
+  mutate(median=median(price))
+ggplot(data=i2,aes(x=reorder(manufacturer_name, -median), y=price))+
+  ggtitle("Price")+
+  xlab("manufacturer_name")+
+  ylab("price_usd")+
+  geom_boxplot(outlier.shape = NA)+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+\newpage
+<p>Plotting for correlation.\
+```{r message=FALSE, warning=FALSE}
+cars_correlation1=Preprocessed_cars%>%select(-up_counter,-color,-engine_has_gas,-model_name,-color,-location_region,-is_exchangeable,-number_of_photos,-duration_listed,-engine_fuel,-engine_type,-manufacturer_name,-state,-has_warranty,-body_type)
+cars_correlation1=data.matrix(data.frame(unclass(cars_correlation1)))
+correlation=cor(cars_correlation1)
+corrplot(correlation, order = "hclust")
+```
+\newpage
+<p>Pairs plot for potential predictors.\
+```{r message=FALSE, warning=FALSE}
+cars_correlation2=Preprocessed_cars%>%select(-up_counter,-color,-engine_has_gas,-model_name,-color,-location_region,-is_exchangeable,-number_of_photos,-duration_listed,-engine_fuel,-engine_type,-manufacturer_name,-state,-has_warranty,-body_type,-feature_0,-feature_1,-feature_2,-feature_3,-feature_4,-feature_5,-feature_6,-feature_7,-feature_8,-feature_9)
+cars_correlation2=data.matrix(data.frame(unclass(cars_correlation2)))
+pairs(cars_correlation2)
+```
+\newpage
+<p>- Automatic transmission is more suitable for cars with big engines.
+<p>- In general higher the engine capacity, higher the brake horse power and lower is the mileage
+<p>- Automatic transmission is more fuel efficient than manual transmission hence preferred with high capacity engines as to save some miles. 
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=Preprocessed_cars,aes(x=transmission, y=engine_capacity))+
+  ggtitle("Transmission type vs Engine volume (Lts)")+
+  xlab("transmission")+
+  ylab("engine_capacity")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+
+
+
+
+\newpage
+# What makes a car expensive?
+## A quest for root causes and interrelations within the Potential predictors.
+
+```{r}
+set.seed=14
+sample=slice_sample(cars, n=1000)
+```
+
+<p>- Highly driven cars are more cheaper
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=sample,aes(x=price_usd, y=odometer_value))+
+  ggtitle("Odometer value vs Price")+
+  xlab("odometer_value")+
+  ylab("price_usd")+
+  geom_point(color="black",alpha=0.3)+
+  
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+<p>- Older cars are cheaper
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=sample,aes(x=price_usd, y=year_produced))+
+  ggtitle("Year of Production vs Price")+
+  xlab("price_usd")+
+  ylab("year_produced")+
+  geom_point(color="black",alpha=0.2)+
+  
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+
+```
+<p>- Older cars are more driven
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=sample,aes(x=odometer_value, y=year_produced))+
+  ggtitle("Year of Production vs Odometer value")+
+  xlab("Odometer_value")+
+  ylab("year_produced")+
+  geom_point(color="black",alpha=0.4)+
+  
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+
+```{r message=FALSE, warning=FALSE}
+pair2=Preprocessed_cars%>%select(price_usd,year_produced,odometer_value)
+pairs(pair2)
+```
+
+\newpage
+- Early produced cars are highly driven showing high odometer readings which makes the car cheaper.
+![](Picture1.png)
+```{r message=FALSE, warning=FALSE}
+plot_ly(sample, x= ~odometer_value, y=~price_usd, z=~year_produced)
+```
+
+
+
+
+\newpage
+## Relationship of drivetrain with price, year of production and odometer reading
+<p>- All wheel drive cars are more expensive.
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=Preprocessed_cars,aes(x=drivetrain, y=price_usd))+
+  ggtitle("Drivetrain versus Price")+
+  xlab("Drivetrain")+
+  ylab("price_usd")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+<p>- All wheel drive cars are less driven.
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=Preprocessed_cars,aes(x=drivetrain, y=odometer_value))+
+  ggtitle("Drivetrain versus Odometer readings")+
+  xlab("Drivetrain")+
+  ylab("odometer_value")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+<p>- All wheel drive is the latest
+```{r message=FALSE, warning=FALSE}
+
+ggplot(data=Preprocessed_cars,aes(x=drivetrain, y=year_produced))+
+  ggtitle("Drivetrain versus Year of production")+
+  xlab("Drivetrain")+
+  ylab("year_produced")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+\newpage
+<p>- All wheel drive cars were produced lately, having lower odometer value which makes the car more expensive. 
+![](Picture2.png)
+
+
+
+
+
+
+\newpage
+## Relationship of transmission with price, year of production and odometer reading.
+
+<p>- The automatic transmission is an assistance feature and these cars are usually expensive than manual transmission cars.
+<p>- Older cars do not come with automatic transmission.
+```{r message=FALSE, warning=FALSE}
+ggplot(data=Preprocessed_cars,aes(x=transmission, y=price_usd))+
+  ggtitle("Transmission type vs Price")+
+  xlab("transmission")+
+  ylab("price_usd")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+<p>- Unlike manual transmission, automatic cars are not produced earlier. They are the latest.
+```{r message=FALSE, warning=FALSE}
+ggplot(data=Preprocessed_cars,aes(x=transmission, y=year_produced))+
+  ggtitle("Transmission type vs year_produced")+
+  xlab("transmission")+
+  ylab("year")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+<p>- Automatic cars are also less driven
+```{r message=FALSE, warning=FALSE}
+ggplot(data=Preprocessed_cars,aes(x=transmission, y=odometer_value))+
+  ggtitle("Transmission type vs odometer_value")+
+  xlab("transmission")+
+  ylab("odometer_value")+
+  geom_boxplot()+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+- Automatic transmission cars were produced lately, having lower odometer value which makes the car more expensive.
+![](Picture3.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\newpage
+# Summary of Numerical Variables
+```{r message=FALSE, warning=FALSE}
+
+
+summary1 <- Preprocessed_cars %>% 
+  summarize(mean = mean(price_usd), max(price_usd), min(price_usd), range(price_usd))
+
+summary2 <- Preprocessed_cars %>% 
+  summarize(mean = mean(odometer_value), max(odometer_value), min(odometer_value), range(odometer_value))
+
+summary3 <- Preprocessed_cars %>% 
+  summarize(max(year_produced), min(year_produced))
+
+summary4 <- Preprocessed_cars %>% 
+  summarize(max(engine_capacity), min(engine_capacity), range(engine_capacity))
+
+summary1
+summary2
+summary3
+summary4
+
+```
+
+## Difficulties while preparing the data for analysis
+- 36533 rows of data made the scatter plots overwhelming, slicing of the dataset has been done and made sure that the trends in subset data plots are no different to that of the parent data set  .
+- Most of the variables are categorical which were then converted into numeric format for plotting several plots.
+- Many temporary data sets were created using group feature to help make plots easier.
+
+## After performing EDA, I believe no other datasets are required at this point but opinion may change in the future.
+```{r}
+#IGNORE
+#require("pairsD3")
+#shinypairs(chemManProc_subset)
+#library(pairsD3)
+```
