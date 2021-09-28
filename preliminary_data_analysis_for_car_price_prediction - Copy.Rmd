@@ -1,0 +1,537 @@
+---
+title: 'Used cars market: Preliminary Data Analysis'
+author: "Sabbella Prasanna"
+date: "4/9/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(corrplot)
+library(dplyr)
+library(readxl)
+library(ggridges)
+library(lattice)
+library(plotly)
+library(party)
+library(matrixStats)
+library(randomForest)
+library(cowplot)
+library(e1071)
+```
+
+```{r message=FALSE, warning=FALSE}
+cars <- read_csv("cars.csv")
+cars_dupe = cars
+```
+\newpage
+# Scope
+
+**Context**: Carvana is an online platform that allows users to sell/trade their cars. The marketing strategists of Carvana knows that the success and popularity of their online brand highly depends on the number of customers who sell and buy used cars through Carvana. It is often difficult for any customer to decide on what is the best sale price of their car and would end up either selling it at a very lower price than at what it could have been sold or at a rather higher price than usual. In both cases either of the buying or selling customers are dissatisfied. This leaves a negating effect on the Carvana's customer base. In order to attract both selling and buying customers the strategists came up with a unique idea, to invest in launching a new feature on their app/website that allows the customer to know what the best price could be to sell his/her car at.\
+\
+![](carvana.png){width=550px}
+
+**Need**: The strategists wanted to suggest the selling price to their new selling customers in a way that attracts both buyers and sellers so that it can end up as a win-win for both parties. They would like to investigate on what major aspects/features of a car did a buyer really looked for and then match these parameters with the car that is about to be listed on sale and make a rightful selling price suggestion.\
+\
+![](need.png){width=250px}
+
+**Vision**: The strategists will make use of already available data history of sold-out cars and investigate what features are really causing a shift in the selling price and measure the sensitivity of change for these features so that they could build a predictive model for predicting the price. The best predictive model is to be chosen by running a set of already available machine learning models and pick the one with the least prediction error which could be Root mean square error or absolute mean error. This predicted price is then used as a selling price suggestion in the new feature.
+
+**Outcome**: The predictive model will be summarized as a report to the board members of Carvana who could further test/validate the price suggestion feature (Probably by launching it as a trial feature for one quarter) before its launch. This sheds light on how impactful the feature is on the customer base of Carvana. During the trial period, the customer base growth/shrinkage is strictly monitored and in order to justify if the growth/shrinkage is really a consequence of the new app feature, feedback is collected from targeted customers who must have used the feature. If growth is the consequence, the suggestion feature can be monetized. Once convinced, they would invest higher volumes of budget into the project for gathering more data and make the app more reliable.
+
+
+\newpage
+# Exploration
+**Problem statement**: Its Required to model a price calculator to suggest a price to the customer. The best machine learning model to predict the selling price from previously available data is to be chosen.
+
+Corresponding variable to predict would be "price_usd".
+The variable is a continuous numeric class which makes the problem statement regression by nature.
+
+Summary of "price_usd" *without transformation, skewness at* **2.235308**
+```{r message=FALSE, warning=FALSE}
+skewness(cars_dupe$price_usd)
+summary(cars_dupe$price_usd)
+```
+
+```{r message=FALSE, warning=FALSE}
+cars_dupee = cars_dupe %>% mutate(log_price_usd = log(price_usd))
+```
+
+Summary of "price_usd" *with log transformation, skewness at* **-0.1938202**
+```{r message=FALSE, warning=FALSE}
+skewness(cars_dupee$log_price_usd)
+summary(cars_dupee$log_price_usd)
+```
+
+## Boxplot and distribution of "price_usd" *without transformation, mean at $6925 (green line)*
+
+```{r message=FALSE, warning=FALSE}
+
+mean_price_usd=mean(cars_dupe$price_usd)
+plot1=ggplot(cars_dupe,aes(x=price_usd))+
+  xlab("price_usd in US dollar")+
+  ylab("Number of cars")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))+
+  geom_histogram(aes(y = stat(density)),color="white",bins=60)+
+  geom_vline(aes(xintercept = mean_price_usd),col='green',size=1)+
+  stat_function(
+    fun = dnorm, 
+    args = list(mean = mean(cars_dupe$price_usd), sd = sd(cars_dupe$price_usd)), 
+    lwd = 1, 
+    col = 'blue')
+plot2=ggplot(data=cars_dupe,aes(x=price_usd))+
+  ggtitle("Price_usd in US dollar")+
+  geom_boxplot(width=0.5)+
+  theme_minimal()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+plot_grid(plot2, plot1,align = "v",ncol = 1)
+```
+
+\newpage
+## Boxplot and distribution of "log_price_usd" *price_usd with log transformation, mean at 8 (green line)*
+
+```{r message=FALSE, warning=FALSE}
+mean_price_usd2=mean(cars_dupee$log_price_usd)
+ plot3=ggplot(cars_dupee,aes(x=log_price_usd))+
+  geom_histogram(aes(y = stat(density)),color="white",bins=60)+
+  geom_vline(aes(xintercept = mean_price_usd2),col='green',size=1)+
+  stat_function(
+    fun = dnorm, 
+    args = list(mean = mean(cars_dupee$log_price_usd), sd = sd(cars_dupee$log_price_usd)), 
+    lwd = 1, 
+    col = 'blue')+
+  xlab("log_price_usd")+
+  ylab("Number of cars")+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+plot4=ggplot(data=cars_dupee,aes(x=log_price_usd))+
+  ggtitle("log_price_usd")+
+  geom_boxplot(width=0.5)+
+  theme_minimal()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+plot_grid(plot4, plot3,align = "v",ncol = 1)
+```
+
+
+
+## List of predictors in the data set
+
+- **model_name** *(Categorical)*: Name of the vehicle model
+- **manufacturer_name** *(Categorical)*: Brand of the car
+- **transmission** *(Categorical)*: There are two types of transmission...automatic & manual
+- **color** *(Categorical)*: Color of the outer body of the car
+- **body_type** *(Categorical)*: Body type of the car
+- **engine_type** *(Categorical)*: There are two types of engines...Gasoline and Diesel
+- **engine_fuel** *(Categorical)*: Different types of fuels
+- **drivetrain** *(Categorical)*: 3 types of drives are present..Front, Rear and All wheel drive
+- **location_region** *(Categorical)*: There are 6 different locations where the cars are listed on sale.
+- **has_warranty** *(Categorical)*: Shows whether a car on sale has a warranty
+- **year_produced** *(Discrete Numeric)*: Year when the car got manufactured.
+- **duration_listed** *(days)* *(Continuous Numeric)*: For how long was the deal on sale?
+- **is_exchangeable** *(logic)*: States whether the car is exchangable with other cars. 
+- **engine_has_gas** *(logic)*: States whether the car's engine runs on gas
+- **state** *(Categorical)*: Ownership status of the car. Owned/emergency/new
+- **engine_capacity** *(Liters)* *(Continuous Numeric)*: Volume swept by all pistons in one engine
+- **odometer_value** *(Kilometers)* *(Continuous Numeric)*: Total distance covered by the car.
+- **number_of_photos** *(Discrete Numeric)*: Number of photos of the listed car uploaded on the website
+- **feature_0 to 9** *(logical)*: Features such as Alloy wheels, fog lamps and other accessories in the car that adds on more price to it.
+
+## Potential predictors
+**year_produced, odometer_value and price_usd shaping the trends**
+
+```{r message=FALSE, warning=FALSE}
+set.seed=14
+sample=slice_sample(cars, n=1000)
+```
+
+\
+older cars are driven more so they have higher odometer values.
+
+```{r message=FALSE, warning=FALSE, fig.width=5,fig.height=3}
+ggplot(data=sample,aes(x=odometer_value, y=year_produced))+
+  ggtitle("Year of Production vs Odometer value")+
+  xlab("Odometer_value measured in kilometers")+
+  ylab("year_produced")+
+  geom_point(color="white",alpha=0.2)+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+
+\
+Higher odometer values make a car less reliable, and the prices are low.
+
+```{r message=FALSE, warning=FALSE, fig.width=5,fig.height=3}
+ggplot(data=sample,aes(x=price_usd, y=odometer_value))+
+  ggtitle("Odometer value vs Price")+
+  xlab("odometer_value measured in kilometers")+
+  ylab("price_usd in US dollar")+
+  geom_point(color="white",alpha=0.2)+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+
+\newpage
+As a result, older cars are cheaper
+
+```{r message=FALSE, warning=FALSE, fig.width=5,fig.height=3}
+ggplot(data=sample,aes(x=price_usd, y=year_produced))+
+  ggtitle("Year of Production vs Price")+
+  xlab("price_usd")+
+  ylab("year_produced")+
+  geom_point(color="white",alpha=0.2)+
+  theme_dark()+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+## **Interesting fact**: Year of Production governs most of the trend in the data while the other predictors are responsible for the variation.\
+
+**The machine learning regression tree model showing year of production at the top of the tree.**
+```{r Regression Tree,message=FALSE, warning=FALSE, fig.width=5,fig.height=6}
+# Fit the model on the training set
+set.seed(123)
+rtmodel <- train(
+  price_usd ~., data = cars_dupe, method = "rpart",
+  trControl = trainControl("cv", number = 5),
+  tuneLength = 10
+  )
+# Plot model error vs different values of cp (complexity parameter)
+#plot(rtmodel)
+# Print the best tuning parameter cp that
+# minimize the model RMSE
+#rtmodel$bestTune
+
+#par(xpd = NA) # Avoid clipping the text in some device
+#plotting the decision tree for the predictor space.
+plot(rtmodel$finalModel)
+text(rtmodel$finalModel, digits = 3)
+
+# Decision rules in the model
+#model$finalModel
+# Make predictions on the validation data
+##predictions <- rtmodel %>% predict(test1)
+# Compute the prediction error RMSE
+##RMSE(predictions, test1$price_usd)
+##MAE(predictions, test1$price_usd)
+```
+
+\newpage
+## Anomalies in the data set
+- Not all variables are defined\
+
+Variable name “up_counter” is not defined\
+Variable names “feature_0”, “feature_1” … “feature_9” (Alloy wheels, tubeless tyres, fog lamps) hold no correspondence with particular attribute.\
+The best way to deal with these variables is by not dealing with them as the analysis does not alter.\
+Yet the app’s suggestion feature may not work as the customer may not be able to input his car features to know the price.
+
+- If appearance is unknown the data might me deceptive\
+
+Two cars with same data may not portray the same aesthetics. Customer may choose these cars at different prices.
+![](escape.png){width=250px}
+
+
+- Missing information that matters
+
+Aspects of car that almost every customer looks at such as boot space, n-seater, leg room etc. are missing in the data set.\
+ Assumption has been made that every model has a unique value/attribute of these missing details.
+![](missing.png){width=250px}
+```{r character to numeric, message=FALSE, warning=FALSE}
+feature_9=unique(cars_dupe$feature_9)
+feature_9=data.frame(feature_9)
+feature_9=feature_9%>%mutate(feature_9_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_9, by = "feature_9")
+cars_dupe$feature_9=NULL
+
+feature_8=unique(cars_dupe$feature_8)
+feature_8=data.frame(feature_8)
+feature_8=feature_8%>%mutate(feature_8_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_8, by = "feature_8")
+cars_dupe$feature_8=NULL
+
+feature_7=unique(cars_dupe$feature_7)
+feature_7=data.frame(feature_7)
+feature_7=feature_7%>%mutate(feature_7_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_7, by = "feature_7")
+cars_dupe$feature_7=NULL
+
+feature_6=unique(cars_dupe$feature_6)
+feature_6=data.frame(feature_6)
+feature_6=feature_6%>%mutate(feature_6_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_6, by = "feature_6")
+cars_dupe$feature_6=NULL
+
+feature_5=unique(cars_dupe$feature_5)
+feature_5=data.frame(feature_5)
+feature_5=feature_5%>%mutate(feature_5_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_5, by = "feature_5")
+cars_dupe$feature_5=NULL
+
+feature_4=unique(cars_dupe$feature_4)
+feature_4=data.frame(feature_4)
+feature_4=feature_4%>%mutate(feature_4_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_4, by = "feature_4")
+cars_dupe$feature_4=NULL
+
+feature_3=unique(cars_dupe$feature_3)
+feature_3=data.frame(feature_3)
+feature_3=feature_3%>%mutate(feature_3_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_3, by = "feature_3")
+cars_dupe$feature_3=NULL
+
+feature_2=unique(cars_dupe$feature_2)
+feature_2=data.frame(feature_2)
+feature_2=feature_2%>%mutate(feature_2_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_2, by = "feature_2")
+cars_dupe$feature_2=NULL
+
+feature_1=unique(cars_dupe$feature_1)
+feature_1=data.frame(feature_1)
+feature_1=feature_1%>%mutate(feature_1_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_1, by = "feature_1")
+cars_dupe$feature_1=NULL
+
+feature_0=unique(cars_dupe$feature_0)
+feature_0=data.frame(feature_0)
+feature_0=feature_0%>%mutate(feature_0_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_0, by = "feature_0")
+cars_dupe$feature_0=NULL
+
+location_region=unique(cars_dupe$location_region)
+location_region=data.frame(location_region)
+location_region=location_region%>%mutate(location_region_num=1:6)
+cars_dupe=merge(x = cars_dupe, y = location_region, by = "location_region")
+cars_dupe$location_region=NULL
+
+is_exchangeable=unique(cars_dupe$is_exchangeable)
+is_exchangeable=data.frame(is_exchangeable)
+is_exchangeable=is_exchangeable%>%mutate(is_exchangeable_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = is_exchangeable, by = "is_exchangeable")
+cars_dupe$is_exchangeable=NULL
+
+state=unique(cars_dupe$state)
+state=data.frame(state)
+state=state%>%mutate(state_num=1:3)
+cars_dupe=merge(x = cars_dupe, y = state, by = "state")
+cars_dupe$state=NULL
+
+drivetrain=unique(cars_dupe$drivetrain)
+drivetrain=data.frame(drivetrain)
+drivetrain=drivetrain%>%mutate(drivetrain_num=1:3)
+cars_dupe=merge(x = cars_dupe, y = drivetrain, by = "drivetrain")
+cars_dupe$drivetrain=NULL
+
+has_warranty=unique(cars_dupe$has_warranty)
+has_warranty=data.frame(has_warranty)
+has_warranty=has_warranty%>%mutate(has_warranty_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = has_warranty, by = "has_warranty")
+cars_dupe$has_warranty=NULL
+
+body_type=unique(cars_dupe$body_type)
+body_type=data.frame(body_type)
+body_type=body_type%>%mutate(body_type_num=1:12)
+cars_dupe=merge(x = cars_dupe, y = body_type, by = "body_type")
+cars_dupe$body_type=NULL
+
+engine_has_gas=unique(cars_dupe$engine_has_gas)
+engine_has_gas=data.frame(engine_has_gas)
+engine_has_gas=engine_has_gas%>%mutate(engine_type_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = engine_has_gas, by = "engine_has_gas")
+cars_dupe$engine_has_gas=NULL
+
+engine_type=unique(cars_dupe$engine_type)
+engine_type=data.frame(engine_type)
+engine_type=engine_type%>%mutate(engine_type_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = engine_type, by = "engine_type")
+cars_dupe$engine_type=NULL
+
+engine_fuel=unique(cars_dupe$engine_fuel)
+engine_fuel=data.frame(engine_fuel)
+engine_fuel=engine_fuel%>%mutate(engine_fuel_num=1:5)
+cars_dupe=merge(x = cars_dupe, y = engine_fuel, by = "engine_fuel")
+cars_dupe$engine_fuel=NULL
+
+color=unique(cars_dupe$color)
+color=data.frame(color)
+color=color%>%mutate(color_num=1:12)
+cars_dupe=merge(x = cars_dupe, y = color, by = "color")
+cars_dupe$color=NULL
+
+transmission=unique(cars_dupe$transmission)
+transmission=data.frame(transmission)
+transmission=transmission%>%mutate(transmission_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = transmission, by = "transmission")
+cars_dupe$transmission=NULL
+
+model_name=unique(cars_dupe$model_name)
+model_name=data.frame(model_name)
+model_name=model_name%>%mutate(model_name_num=1:1022)
+cars_dupe=merge(x = cars_dupe, y = model_name, by = "model_name")
+cars_dupe$model_name=NULL
+
+manufacturer_name=unique(cars_dupe$manufacturer_name)
+manufacturer_name=data.frame(manufacturer_name)
+manufacturer_name=manufacturer_name%>%mutate(manufacturer_name_num=1:50)
+cars_dupe=merge(x = cars_dupe, y = manufacturer_name, by = "manufacturer_name")
+cars_dupe$manufacturer_name=NULL
+```
+```{r Check for missing values, message=FALSE, warning=FALSE}
+#total_nan = function(x) sum(is.na(x))
+#cars_dupe %>% summarise(across(everything(), total_nan))
+```
+```{r splitting, message=FALSE, warning=FALSE}
+number_train = floor(0.75*nrow(cars_dupe))
+training_indices = sample(1:nrow(cars_dupe),number_train)
+train1 = cars_dupe[training_indices,]
+test1 = cars_dupe[-training_indices,]
+
+preprocessed_cars_dupe1=cars_dupe%>%mutate(price_usd_log=log(price_usd))
+preprocessed_cars_dupe1$price_usd=NULL
+
+a=data.frame(select(preprocessed_cars_dupe1,year_produced,odometer_value,engine_capacity,number_of_photos,duration_listed))
+b=preProcess(a,method=c("BoxCox","center","scale"))
+c=predict(b,data.frame(select(preprocessed_cars_dupe1,-price_usd_log)))
+d=data.frame(c)
+d=d%>%mutate(price_usd_log=preprocessed_cars_dupe1$price_usd_log)
+preprocessed_cars_dupe2=data.frame(d)
+```
+\newpage
+## Prediction models
+
+**Linear model with no transformation. RMSE at $3359 and MAE at $2197**
+
+```{r Linear_Model_1, message=FALSE, warning=FALSE}
+set.seed(123)
+# Building the linear model
+linear_model_train1 <- lm(price_usd ~., data = train1)
+# Make predictions and compute RMSE and MAE
+predictions <- linear_model_train1 %>% predict(test1)
+data.frame(RMSE = RMSE(predictions, test1$price_usd),
+           MAE = MAE(predictions, test1$price_usd))
+```
+
+**Linear model with log transformed outcome. RMSE at $8724 and MAE at $6586**
+
+```{r Linear_Model_2, message=FALSE, warning=FALSE}
+number_train = floor(0.75*nrow(preprocessed_cars_dupe1))
+training_indices = sample(1:nrow(preprocessed_cars_dupe1),number_train)
+train2 = preprocessed_cars_dupe1[training_indices,]
+test2 = preprocessed_cars_dupe1[-training_indices,]
+
+set.seed(123)
+# Building the linear model
+linear_model_train2 <- lm(price_usd_log ~., data = train2)
+# Make predictions and compute RMSE and MAE
+predictions <- linear_model_train2 %>% predict(test2)
+predictions=2.718^predictions
+data.frame(RMSE = RMSE(predictions, test2$price_usd_log),
+           MAE = MAE(predictions, test2$price_usd_log))
+```
+
+**Linear model with transformed outcome and predictors. RMSE at $8695 and MAE at $6581**
+
+```{r Linear_Model_3, message=FALSE, warning=FALSE}
+number_train = floor(0.75*nrow(preprocessed_cars_dupe2))
+training_indices = sample(1:nrow(preprocessed_cars_dupe2),number_train)
+train3 = preprocessed_cars_dupe2[training_indices,]
+test3 = preprocessed_cars_dupe2[-training_indices,]
+
+set.seed(123)
+# Building the linear model
+linear_model_train3 <- lm(price_usd_log ~., data = train3)
+# Make predictions and compute RMSE and MAE
+predictions <- linear_model_train3 %>% predict(test3)
+predictions=2.718^predictions
+data.frame(RMSE = RMSE(predictions, test3$price_usd_log),
+           MAE = MAE(predictions, test3$price_usd_log))
+```
+
+**Linear model with cross validation 10 folds (No transformation). RMSE at $3549 and MAE at $2264**
+
+```{r Linear_Model_4, message=FALSE, warning=FALSE}
+
+set.seed(124) 
+train.control <- trainControl(method = "cv", number = 10)
+# Train the model
+Linear_Model_4 <- train(price_usd ~., data = train1, method = "lm",
+               trControl = train.control)
+
+predictions = Linear_Model_4 %>% predict(test1)
+data.frame( RMSE = RMSE(predictions, test1$price_usd),
+            MAE = MAE(predictions, test1$price_usd))
+```
+
+**Neural net with cross validation 10 folds (No transformation). RMSE at $4676 and MAE at $2897**
+
+```{r Neural_Networks_1, message=FALSE, warning=FALSE}
+
+set.seed(100)
+nnetGrid <- expand.grid(
+            decay = c(0.0,20,50,100, 150),size = c(3))
+
+nnet_model_1 <- train(price_usd ~., data = train1,
+                        method = "nnet",
+                        repeats = 3,
+                        tuneGrid = nnetGrid,
+                        trControl = trainControl("cv", number = 5),
+                        preProc = c("center", "scale"),
+                        linout = TRUE,
+                        trace = FALSE)
+
+predictions_nnet_model_1 <- nnet_model_1 %>% predict(test1)
+
+data.frame( RMSE = RMSE(predictions_nnet_model_1, test1$price_usd),
+            MAE = MAE(predictions_nnet_model_1, test1$price_usd))
+
+ggplot(nnet_model_1)
+```
+
+**Random Forests with no pre processing. RMSE at $1932.**
+
+```{r random forest, message=FALSE, warning=FALSE}
+set.seed(123)
+
+rfmodel <- train(
+  price_usd ~., data = train1, method = "rf",
+  trControl = trainControl("cv", number = 5)
+  )
+
+
+par(xpd = NA)
+plot(rfmodel$finalModel)
+text(rfmodel$finalModel, digits = 3)
+
+rfmodel$bestTune
+rfpredictions <- rfmodel %>% predict(test1)
+RMSE(rfpredictions, test1$price_usd)
+
+plot(rfmodel)
+```
+
+\newpage
+
+## Future plan into analysis
+As Random forest shows a promising result, investigation into decision tree is necessary that may help in predicting better outcome.\
+Improvements to be made with Features Engineering (contribution/sensitivity of predictors to the error), Ensembling techniques (bagging, boosting, bootstrapping), Hyperparameters tuning (complexity parameters)
+
+## Difficulties 
+Handling 36,533 observations is overwhelming.\
+Run time for Random forest is about 2 hours.
