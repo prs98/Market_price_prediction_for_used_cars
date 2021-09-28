@@ -1,0 +1,820 @@
+---
+title: 'Used cars market: Final report'
+author: "Sabbella Prasanna"
+date: "4/17/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+```{r library, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(corrplot)
+library(dplyr)
+library(readxl)
+library(ggridges)
+library(party)
+library(partykit)
+library(lattice)
+library(plotly)
+library(party)
+library(matrixStats)
+library(randomForest)
+library(cowplot)
+library(e1071)
+
+
+```
+
+\newpage
+# 1. Introduction
+
+## Motivation
+Since the past 10 years Russia always stood among top 10 car makers in the world. About 1.8 million cars were sold in 2019. Fuel cars are now being replaced with electric cars and the demand for used cars is never going to fall anytime in the future and there will always be a need of an online platform to sell and buy used cars.
+
+## Background
+Carvana is an online platform that allows users/customers to sell and buy used cars and like numerous other brands we might want to expand the customer base of the website. It is often difficult for any customer to decide on what would be the best sale price of their car. Thus we came up with an idea to work on a new feature that will be able to suggest a sale price to a selling customer. This can be accomplished by building a predictive machine learning model using the previous sales history data and use this prediction as the suggestion price. Once executed the board members will need to assess the achievement rate and performance of the site.
+![](Intro.png){width=550px}
+
+## Goals
+The predictive model will be summarized as a report to the board members of Carvana who
+could further test/validate the price suggestion feature (probably by launching it as a trial feature for one quarter) before its launch. This sheds light on how impactful the feature is on the customer base of Carvana. During the trial period, the customer base growth/shrinkage is strictly monitored and in order to justify if the growth/shrinkage is really a consequence of the new app feature, feedback is collected from targeted customers who must have used the feature. If growth is the consequence, the suggestion feature can take its place on the website to be fully functional. Once convinced, they would invest higher volumes of budget into the project for gathering more data and make the app more reliable.
+
+# 2. About the dataset
+
+The dataset contains 36,533 observations and 29 different variables of different used car sales in 6 major cities of Russia in 2018. The data was collected by a freelancing data scientist in the year 2018 on personal interest.\
+** Interesting Fact:**There are 29 different car manufacturers in Russia among which 19 are currently active. Although the data collected is of the sales in Russia, Only LADA from the dataset belongs to the list of Russian car makers among 50 different car makers. This reflects the influence and proportion of market share owned by international car brands in Russia.
+
+#3. Obstacles
+
+## Difficulties
+Handling 36,533 observations into random forests is quiet overwhelming.\
+Run time for Random forest is about 8 hours.\
+
+## Dealing with missing information
+- Not all variables are defined\
+
+Variable name “up_counter” is not defined\
+Variable names “feature_0”, “feature_1” … “feature_9” (Alloy wheels, tubeless tyres, fog lamps) hold no correspondence with particular attribute.\
+The best way to deal with these variables is by not dealing with them as the analysis does not alter.\
+Yet the app’s suggestion feature may not work as the customer may not be able to input his car features to know the price.
+
+- If appearance is unknown the data might me deceptive\
+
+Two cars with same data may not portray the same aesthetics. Customer may choose these cars at different prices.
+![](escape.png){width=250px}
+
+- Missing information that matters
+
+Aspects of car that almost every customer looks at such as boot space, n-seater, leg room etc. are missing in the data set.\
+ Assumption has been made that every model has a unique value/attribute of these missing details.
+![](missing.png){width=250px}
+\newpage
+# 4. Analysis
+
+## Preprocessing
+Categorical variables in the data set were converted into numeric. No log transformation has been applied on the outcome variable and no predictors processing.
+ 
+
+
+```{r dataset, message=FALSE, warning=FALSE}
+cars <- read_csv("cars.csv")
+cars_dupe=cars
+```
+```#{r character to numeric, message=FALSE, warning=FALSE}
+
+feature_9=unique(cars_dupe$feature_9)
+feature_9=data.frame(feature_9)
+feature_9=feature_9%>%mutate(feature_9_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_9, by = "feature_9")
+cars_dupe$feature_9=NULL
+
+feature_8=unique(cars_dupe$feature_8)
+feature_8=data.frame(feature_8)
+feature_8=feature_8%>%mutate(feature_8_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_8, by = "feature_8")
+cars_dupe$feature_8=NULL
+
+feature_7=unique(cars_dupe$feature_7)
+feature_7=data.frame(feature_7)
+feature_7=feature_7%>%mutate(feature_7_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_7, by = "feature_7")
+cars_dupe$feature_7=NULL
+
+feature_6=unique(cars_dupe$feature_6)
+feature_6=data.frame(feature_6)
+feature_6=feature_6%>%mutate(feature_6_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_6, by = "feature_6")
+cars_dupe$feature_6=NULL
+
+feature_5=unique(cars_dupe$feature_5)
+feature_5=data.frame(feature_5)
+feature_5=feature_5%>%mutate(feature_5_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_5, by = "feature_5")
+cars_dupe$feature_5=NULL
+
+feature_4=unique(cars_dupe$feature_4)
+feature_4=data.frame(feature_4)
+feature_4=feature_4%>%mutate(feature_4_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_4, by = "feature_4")
+cars_dupe$feature_4=NULL
+
+feature_3=unique(cars_dupe$feature_3)
+feature_3=data.frame(feature_3)
+feature_3=feature_3%>%mutate(feature_3_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_3, by = "feature_3")
+cars_dupe$feature_3=NULL
+
+feature_2=unique(cars_dupe$feature_2)
+feature_2=data.frame(feature_2)
+feature_2=feature_2%>%mutate(feature_2_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_2, by = "feature_2")
+cars_dupe$feature_2=NULL
+
+feature_1=unique(cars_dupe$feature_1)
+feature_1=data.frame(feature_1)
+feature_1=feature_1%>%mutate(feature_1_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_1, by = "feature_1")
+cars_dupe$feature_1=NULL
+
+feature_0=unique(cars_dupe$feature_0)
+feature_0=data.frame(feature_0)
+feature_0=feature_0%>%mutate(feature_0_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = feature_0, by = "feature_0")
+cars_dupe$feature_0=NULL
+
+location_region=unique(cars_dupe$location_region)
+location_region=data.frame(location_region)
+location_region=location_region%>%mutate(location_region_num=1:6)
+cars_dupe=merge(x = cars_dupe, y = location_region, by = "location_region")
+cars_dupe$location_region=NULL
+
+is_exchangeable=unique(cars_dupe$is_exchangeable)
+is_exchangeable=data.frame(is_exchangeable)
+is_exchangeable=is_exchangeable%>%mutate(is_exchangeable_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = is_exchangeable, by = "is_exchangeable")
+cars_dupe$is_exchangeable=NULL
+
+state=unique(cars_dupe$state)
+state=data.frame(state)
+state=state%>%mutate(state_num=1:3)
+cars_dupe=merge(x = cars_dupe, y = state, by = "state")
+cars_dupe$state=NULL
+
+drivetrain=unique(cars_dupe$drivetrain)
+drivetrain=data.frame(drivetrain)
+drivetrain=drivetrain%>%mutate(drivetrain_num=1:3)
+cars_dupe=merge(x = cars_dupe, y = drivetrain, by = "drivetrain")
+cars_dupe$drivetrain=NULL
+
+has_warranty=unique(cars_dupe$has_warranty)
+has_warranty=data.frame(has_warranty)
+has_warranty=has_warranty%>%mutate(has_warranty_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = has_warranty, by = "has_warranty")
+cars_dupe$has_warranty=NULL
+
+body_type=unique(cars_dupe$body_type)
+body_type=data.frame(body_type)
+body_type=body_type%>%mutate(body_type_num=1:12)
+cars_dupe=merge(x = cars_dupe, y = body_type, by = "body_type")
+cars_dupe$body_type=NULL
+
+engine_has_gas=unique(cars_dupe$engine_has_gas)
+engine_has_gas=data.frame(engine_has_gas)
+engine_has_gas=engine_has_gas%>%mutate(engine_type_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = engine_has_gas, by = "engine_has_gas")
+cars_dupe$engine_has_gas=NULL
+
+engine_type=unique(cars_dupe$engine_type)
+engine_type=data.frame(engine_type)
+engine_type=engine_type%>%mutate(engine_type_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = engine_type, by = "engine_type")
+cars_dupe$engine_type=NULL
+
+engine_fuel=unique(cars_dupe$engine_fuel)
+engine_fuel=data.frame(engine_fuel)
+engine_fuel=engine_fuel%>%mutate(engine_fuel_num=1:5)
+cars_dupe=merge(x = cars_dupe, y = engine_fuel, by = "engine_fuel")
+cars_dupe$engine_fuel=NULL
+
+color=unique(cars_dupe$color)
+color=data.frame(color)
+color=color%>%mutate(color_num=1:12)
+cars_dupe=merge(x = cars_dupe, y = color, by = "color")
+cars_dupe$color=NULL
+
+transmission=unique(cars_dupe$transmission)
+transmission=data.frame(transmission)
+transmission=transmission%>%mutate(transmission_num=1:2)
+cars_dupe=merge(x = cars_dupe, y = transmission, by = "transmission")
+cars_dupe$transmission=NULL
+
+model_name=unique(cars_dupe$model_name)
+model_name=data.frame(model_name)
+model_name=model_name%>%mutate(model_name_num=1:1022)
+cars_dupe=merge(x = cars_dupe, y = model_name, by = "model_name")
+cars_dupe$model_name=NULL
+
+manufacturer_name=unique(cars_dupe$manufacturer_name)
+manufacturer_name=data.frame(manufacturer_name)
+manufacturer_name=manufacturer_name%>%mutate(manufacturer_name_num=1:50)
+cars_dupe=merge(x = cars_dupe, y = manufacturer_name, by = "manufacturer_name")
+cars_dupe$manufacturer_name=NULL
+```
+```#{r splitting, message=FALSE, warning=FALSE}
+number_train = floor(0.70*nrow(cars_dupe))
+training_indices = sample(1:nrow(cars_dupe),number_train)
+train = cars_dupe[training_indices,]
+test = cars_dupe[-training_indices,]
+```
+
+```#{r Linear_Model_1, message=FALSE, warning=FALSE}
+
+set.seed(123)
+
+# Building the linear model
+
+linear_model_train <- lm(price_usd ~., data = train)
+
+# Make predictions and compute RMSE and MAE
+
+predictions <- linear_model_train %>% predict(test)
+
+data.frame(RMSE = RMSE(predictions, test$price_usd),
+
+           MAE = MAE(predictions, test$price_usd))
+
+
+Q=test %>% select(price_usd)
+q=data.frame(predictions)
+W=cbind(Q,q)
+
+set.seed=14
+sample=slice_sample(W, n=50)
+
+ggplot(data=W,aes(x=price_usd,y=predictions))+
+  ggtitle("TRANSMISSION")+
+  xlab("price_usd")+
+  ylab("predictions")+
+  geom_point()
+
+```
+```#{r Neural_Networks_1, message=FALSE, warning=FALSE}
+
+set.seed(100)
+nnetGrid <- expand.grid(
+            decay = c(0.0,20,50,100, 150),size = c(3))
+
+nnet_model_1 <- train(price_usd ~., data = train,
+                        method = "nnet",
+                        repeats = 6,
+                        tuneGrid = nnetGrid,
+                        trControl = trainControl("cv", number = 5),
+                        preProc = c("center", "scale"),
+                        linout = TRUE,
+                        trace = FALSE)
+
+predictions_nnet_model_1 <- nnet_model_1 %>% predict(test)
+
+data.frame( RMSE = RMSE(predictions_nnet_model_1, test$price_usd),
+            MAE = MAE(predictions_nnet_model_1, test$price_usd))
+
+ggplot(nnet_model_1)
+```
+```#{r regression tree, message=FALSE, warning=FALSE}
+# Fit the model on the training set
+set.seed(123)
+rtmodel <- train(
+  price_usd ~., data = train, method = "rpart",
+  trControl = trainControl("cv", number = 5),
+  tuneLength = 10
+  )
+
+plot(rtmodel)
+
+rtmodel$bestTune
+predictions_rt <- rtmodel %>% predict(test)
+
+data.frame( RMSE = RMSE(predictions_rt, test$price_usd),
+            MAE = MAE(predictions_rt, test$price_usd))
+```
+```#{r random forest, message=FALSE, warning=FALSE}
+set.seed(123)
+
+rfmodel <- train(
+  price_usd ~., data = train,method = "rf",
+  trControl = trainControl("cv", number = 5)
+  )
+
+
+predictions <- rfmodel %>% predict(test)
+
+rfmodel$bestTune
+rfpredictions <- rfmodel %>% predict(test)
+RMSE(rfpredictions, test$price_usd)
+MAE(rfpredictions, test$price_usd)
+
+plot(rfmodel)
+cartTuneSimple = update(rtmodel, param=list(cp = 0.001))
+plot = as.party(cartTuneSimple$finalModel)
+plot(plot)
+cartTuneSimple$finalModel
+
+varImp(rfmodel)
+```
+```#{r for cat boosting, message=FALSE, warning=FALSE}
+
+y_train <- unlist(train[c('price_usd')])
+X_train <- train %>% select(-price_usd)
+y_test <- unlist(test[c('price_usd')])
+X_test <- test %>% select(-price_usd)
+
+train_pool <- catboost.load_pool(data = X_train, label = y_train)
+test_pool <- catboost.load_pool(data = X_test, label = y_test)
+
+params <- list(iterations=500,
+learning_rate=0.01,
+depth=10,
+loss_function='RMSE',
+eval_metric='RMSE',
+random_seed = 55,
+od_type='Iter',
+metric_period = 50,
+od_wait=20,
+use_best_model=TRUE)
+
+model <- catboost.train(learn_pool = train_pool,params = params)
+y_pred=catboost.predict(model,test_pool)
+postResample(y_pred,test$price_usd)
+```
+
+## Performance of models
+
+The RMSE and MAE of the prediction with different models is shown below. Both RMSE and MAE are the lowest with the Random Forest model.
+```{r message=FALSE, warning=FALSE}
+
+R=data.frame()
+R[1,1] = "Linear Model"
+R[2,1] = "Neural Net"
+R[3,1] = "Regression Tree"
+R[4,1] = "Random Forest"
+
+R[1,2] = 3493.551
+R[2,2] = 4285.867	
+R[3,2] = 3288.953
+R[4,2] = 2017.172
+
+R[1,3] = 2226.279
+R[2,3] = 2706.424
+R[3,3] = 2186.342
+R[4,3] = 1155.145
+
+ggplot(R, aes(as.factor(V1), V2)) +
+    geom_bar(stat = "identity") + 
+    labs(y = "RMSE in usd", x = "Model")
+
+ggplot(R, aes(as.factor(V1), V3)) +
+    geom_bar(stat = "identity") + 
+    labs(y = "MAE in usd", x = "Model")
+
+```
+The below graph shows the actual value versus the predicted value for random forest.
+```#{r message=FALSE, warning=FALSE}
+
+QWERTYY = data.frame(predictions)
+ssss=test %>% mutate(QWERTYY)
+
+set.seed=14
+samplee=slice_sample(ssss, n=500)
+
+ggplot(data=samplee,aes(x=price_usd, y=predictions))+
+  ggtitle("prediction vs actual prices")+
+  xlab("actual price")+
+  ylab("predicted price")+
+  geom_point()
+```
+![](RFF.png){width=450px}
+
+**Why are trees better?**
+
+Each “manufacturer” has their own brand value. “*Manufacturer_name*” and each model has its own price range. “*Model_name*”. Trees are basically designed to recognize these sets of models within the observations. So regression trees and random forest are better at predicting the sale prices "*price_usd*".
+
+**Discussing few aspects of the tree branches** 
+The figure below shows a brief decision tree of the regression tree model. 
+![](tree.png){width=550px}
+In the data set older cars are driven more so they have higher odometer values, which make a car less reliable, and the prices are lower. See graphs below. Year of Production governs most of the trend in the data while the other predictors are responsible for the variation. So, the decision tree mostly splits the outcome data based on the *year_produced* variable as observed in nodes 1,2,8 & 11.
+```{r message=FALSE, warning=FALSE}
+set.seed=14
+sample=slice_sample(cars, n=1000)
+```
+
+```{r message=FALSE, warning=FALSE, fig.width=5,fig.height=3}
+ggplot(data=sample,aes(x=odometer_value, y=year_produced))+
+  ggtitle("Year of Production vs Odometer value")+
+  xlab("Odometer_value measured in kilometers")+
+  ylab("year_produced")+
+  geom_point(color="black",alpha=0.2)+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+
+```{r message=FALSE, warning=FALSE, fig.width=5,fig.height=3}
+ggplot(data=sample,aes(x=price_usd, y=odometer_value))+
+  ggtitle("Odometer value vs Price")+
+  xlab("odometer_value measured in kilometers")+
+  ylab("price_usd in US dollar")+
+  geom_point(color="black",alpha=0.2)+
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+
+In the dataset approximately 75% all wheel drive cars are higher in price than 75% of the number of front and rear drive cars. See graph below. Under converting the data set "All" wheel drive corresponds to 1, "Front" wheel drive corresponds to 2 and "Rear" to 3. So the *drivetrain_num* variable which is at nodes 4 and 7 is always split as >1.5 ("1"-All wheel drive) and <1.5 ("2 & 3"-Front and Rear wheel drive).
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data=cars,aes(x=drivetrain, y=price_usd))+
+  ggtitle("Drivetrain versus Price")+
+  xlab("Drivetrain")+
+  ylab("price_usd")+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+
+## Dissatisfaction with the Random Forest
+
+The below table explains what variable impacts RMSE of the prediction the most. *year_produced* variable
+being at the top of the tree is the most impacting variable with value at 100. The trees were hailed for their power of recognizing the fact that every model *model_name_num* has a price range, despite which the *model_name_num* variable's impact level is very low at only 5.43.
+![](sssdd.png){width=450px}
+
+\newpage
+## Prediction based on car model
+
+As the previous idea fails to produce a prediction based on the car model it is necessary to look at the RMSE of individual car models.
+
+Each model has its own brand value and price range and brand value is based on many factors such as  History, Country, Marketing strategies, people’s obsession, attractiveness, captivating logo etc. of which no information is currently available in the dataset. Why try to predict the price of a car from the whole dataset when the customer would know exactly his car’s model name?
+
+\newpage
+## Performance of different models on the legendary "PASSAT"
+
+As usually the Random Forests are performing better with RMSE at 866.7 usd and MAE at 622.5 usd
+```#{r passat, message=FALSE, warning=FALSE}
+
+passat=cars_dupe %>% filter(model_name_num == 38)
+
+number_train_passat = floor(0.75*nrow(passat))
+training_indices_passat = sample(1:nrow(passat),number_train_passat)
+train_passat = passat[training_indices_passat,]
+test_passat = passat[-training_indices_passat,]
+
+```
+
+```#{r Linear_Model_passat, message=FALSE, warning=FALSE}
+
+set.seed(123)
+
+# Building the linear model
+
+linear_model_train_passat <- lm(price_usd ~., data = train_passat)
+
+# Make predictions and compute RMSE and MAE
+
+predictions <- linear_model_train_passat %>% predict(test_passat)
+
+data.frame(RMSE = RMSE(predictions, test_passat$price_usd),
+
+           MAE = MAE(predictions, test_passat$price_usd))
+
+```
+```#{r regression_tree_passat, message=FALSE, warning=FALSE}
+# Fit the model on the training set
+set.seed(123)
+rtmodel_passat <- train(
+  price_usd ~., data = train_passat, method = "rpart",
+  trControl = trainControl("cv", number = 5),
+  tuneLength = 10
+  )
+
+plot(rtmodel_passat)
+
+rtmodel_passat$bestTune
+predictions_rt <- rtmodel_passat %>% predict(test_passat)
+
+data.frame( RMSE = RMSE(predictions_rt, test_passat$price_usd),
+            MAE = MAE(predictions_rt, test_passat$price_usd))
+```
+```#{r Neural_Networks_passat, message=FALSE, warning=FALSE}
+
+set.seed(100)
+nnetGrid <- expand.grid(
+            decay = c(0.0,20,50,100, 150),size = c(3))
+
+nnet_model_passat <- train(price_usd ~., data = train_passat,
+                        method = "nnet",
+                        repeats = 6,
+                        tuneGrid = nnetGrid,
+                        trControl = trainControl("cv", number = 5),
+                        preProc = c("center", "scale"),
+                        linout = TRUE,
+                        trace = FALSE)
+
+predictions_nnet_model_passat<- nnet_model_passat %>% predict(test_passat)
+
+data.frame( RMSE = RMSE(predictions_nnet_model_passat, test_passat$price_usd),
+            MAE = MAE(predictions_nnet_model_passat, test_passat$price_usd))
+
+ggplot(nnet_model_passat)
+```
+```#{r random forest passat, message=FALSE, warning=FALSE}
+set.seed(123)
+
+rfmodel_passat <- train(
+  price_usd ~., data = train_passat,method = "rf",
+  trControl = trainControl("cv", number = 5)
+  )
+
+
+# Make predictions on the test data
+predictions22 <- rfmodel_passat %>% predict(test_passat)
+
+
+rfmodel_passat$bestTune
+rfpredictions_passat <- rfmodel_passat %>% predict(test_passat)
+#RMSE(rfpredictions_passat, test_passat$price_usd)
+#MAE(rfpredictions_passat, test_passat$price_usd)
+
+#plot(rfmodel_passat)
+#cartTuneSimple = update(rfmodel_passat, param=list(mtry = 29))
+
+#summary(passat$price_usd)
+
+#varImp(rfmodel_passat)
+
+
+```
+```{r message=FALSE, warning=FALSE}
+
+D=data.frame()
+D[1,1] = "Neural Net"
+D[2,1] = "Linear Model"
+D[3,1] = "Regression Tree"
+D[4,1] = "Random Forest"
+
+
+D[1,2] = 2561.863
+D[2,2] = 1627.165
+D[3,2] = 982.04
+D[4,2] = 677.5
+
+D[1,3] = 1762.446
+D[2,3] = 1096.023
+D[3,3] = 997.54
+D[4,3] = 627.71
+
+ggplot(D, aes(as.factor(V1), V2)) +
+    geom_bar(stat = "identity") + 
+    labs(y = "RMSE in usd", x = "Model")
+
+ggplot(D, aes(as.factor(V1), V3)) +
+    geom_bar(stat = "identity") + 
+    labs(y = "MAE in usd", x = "Model")
+
+```
+
+The graph below shows the actual prices versus the predicted prices for Passat
+```#{r message=FALSE, warning=FALSE}
+QWERTY = data.frame(predictions22)
+sss=test_passat %>% mutate(QWERTY)
+ggplot(data=sss,aes(x=price_usd, y=predictions22))+
+  ggtitle("prediction vs actual prices for passat")+
+  xlab("actual price")+
+  ylab("predicted price")+
+  geom_point()
+```
+![](passss.png){width=450px}
+
+
+\newpage
+## Performance of random forests on 698 individual car models.
+Most models fall under the RMSE of 1000 usd.
+```{r dataset, message=FALSE, warning=FALSE}
+
+cars_dupe_mod=read_csv("cars_dupe.csv")
+
+cars_dupe_mod=cars_dupe_mod[-(1:554), , drop = FALSE]
+cars_dupe_mod=cars_dupe_mod %>% select(-count)
+```
+```{r character to numeric, message=FALSE, warning=FALSE}
+
+feature_9=unique(cars_dupe_mod$feature_9)
+feature_9=data.frame(feature_9)
+feature_9=feature_9%>%mutate(feature_9_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_9, by = "feature_9")
+cars_dupe_mod$feature_9=NULL
+
+feature_8=unique(cars_dupe_mod$feature_8)
+feature_8=data.frame(feature_8)
+feature_8=feature_8%>%mutate(feature_8_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_8, by = "feature_8")
+cars_dupe_mod$feature_8=NULL
+
+feature_7=unique(cars_dupe_mod$feature_7)
+feature_7=data.frame(feature_7)
+feature_7=feature_7%>%mutate(feature_7_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_7, by = "feature_7")
+cars_dupe_mod$feature_7=NULL
+
+feature_6=unique(cars_dupe_mod$feature_6)
+feature_6=data.frame(feature_6)
+feature_6=feature_6%>%mutate(feature_6_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_6, by = "feature_6")
+cars_dupe_mod$feature_6=NULL
+
+feature_5=unique(cars_dupe_mod$feature_5)
+feature_5=data.frame(feature_5)
+feature_5=feature_5%>%mutate(feature_5_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_5, by = "feature_5")
+cars_dupe_mod$feature_5=NULL
+
+feature_4=unique(cars_dupe_mod$feature_4)
+feature_4=data.frame(feature_4)
+feature_4=feature_4%>%mutate(feature_4_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_4, by = "feature_4")
+cars_dupe_mod$feature_4=NULL
+
+feature_3=unique(cars_dupe_mod$feature_3)
+feature_3=data.frame(feature_3)
+feature_3=feature_3%>%mutate(feature_3_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_3, by = "feature_3")
+cars_dupe_mod$feature_3=NULL
+
+feature_2=unique(cars_dupe_mod$feature_2)
+feature_2=data.frame(feature_2)
+feature_2=feature_2%>%mutate(feature_2_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_2, by = "feature_2")
+cars_dupe_mod$feature_2=NULL
+
+feature_1=unique(cars_dupe_mod$feature_1)
+feature_1=data.frame(feature_1)
+feature_1=feature_1%>%mutate(feature_1_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_1, by = "feature_1")
+cars_dupe_mod$feature_1=NULL
+
+feature_0=unique(cars_dupe_mod$feature_0)
+feature_0=data.frame(feature_0)
+feature_0=feature_0%>%mutate(feature_0_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = feature_0, by = "feature_0")
+cars_dupe_mod$feature_0=NULL
+
+location_region=unique(cars_dupe_mod$location_region)
+location_region=data.frame(location_region)
+location_region=location_region%>%mutate(location_region_num=1:6)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = location_region, by = "location_region")
+cars_dupe_mod$location_region=NULL
+
+is_exchangeable=unique(cars_dupe_mod$is_exchangeable)
+is_exchangeable=data.frame(is_exchangeable)
+is_exchangeable=is_exchangeable%>%mutate(is_exchangeable_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = is_exchangeable, by = "is_exchangeable")
+cars_dupe_mod$is_exchangeable=NULL
+
+state=unique(cars_dupe_mod$state)
+state=data.frame(state)
+state=state%>%mutate(state_num=1:3)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = state, by = "state")
+cars_dupe_mod$state=NULL
+
+drivetrain=unique(cars_dupe_mod$drivetrain)
+drivetrain=data.frame(drivetrain)
+drivetrain=drivetrain%>%mutate(drivetrain_num=1:3)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = drivetrain, by = "drivetrain")
+cars_dupe_mod$drivetrain=NULL
+
+has_warranty=unique(cars_dupe_mod$has_warranty)
+has_warranty=data.frame(has_warranty)
+has_warranty=has_warranty%>%mutate(has_warranty_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = has_warranty, by = "has_warranty")
+cars_dupe_mod$has_warranty=NULL
+
+body_type=unique(cars_dupe_mod$body_type)
+body_type=data.frame(body_type)
+body_type=body_type%>%mutate(body_type_num=1:12)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = body_type, by = "body_type")
+cars_dupe_mod$body_type=NULL
+
+engine_has_gas=unique(cars_dupe_mod$engine_has_gas)
+engine_has_gas=data.frame(engine_has_gas)
+engine_has_gas=engine_has_gas%>%mutate(engine_type_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = engine_has_gas, by = "engine_has_gas")
+cars_dupe_mod$engine_has_gas=NULL
+
+engine_type=unique(cars_dupe_mod$engine_type)
+engine_type=data.frame(engine_type)
+engine_type=engine_type%>%mutate(engine_type_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = engine_type, by = "engine_type")
+cars_dupe_mod$engine_type=NULL
+
+engine_fuel=unique(cars_dupe_mod$engine_fuel)
+engine_fuel=data.frame(engine_fuel)
+engine_fuel=engine_fuel%>%mutate(engine_fuel_num=1:5)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = engine_fuel, by = "engine_fuel")
+cars_dupe_mod$engine_fuel=NULL
+
+color=unique(cars_dupe_mod$color)
+color=data.frame(color)
+color=color%>%mutate(color_num=1:12)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = color, by = "color")
+cars_dupe_mod$color=NULL
+
+transmission=unique(cars_dupe_mod$transmission)
+transmission=data.frame(transmission)
+transmission=transmission%>%mutate(transmission_num=1:2)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = transmission, by = "transmission")
+cars_dupe_mod$transmission=NULL
+
+model_name=unique(cars_dupe_mod$model_name)
+model_name=data.frame(model_name)
+model_name=model_name%>%mutate(model_name_num=1:698)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = model_name, by = "model_name")
+cars_dupe_mod$model_name=NULL
+
+manufacturer_name=unique(cars_dupe_mod$manufacturer_name)
+manufacturer_name=data.frame(manufacturer_name)
+manufacturer_name=manufacturer_name%>%mutate(manufacturer_name_num=1:50)
+cars_dupe_mod=merge(x = cars_dupe_mod, y = manufacturer_name, by = "manufacturer_name")
+cars_dupe_mod$manufacturer_name=NULL
+```
+```{r A, message=FALSE, warning=FALSE}
+P=data.frame()
+
+for (i in 1:698) {
+  A=cars_dupe_mod %>% filter(model_name_num == i)
+
+number_train = floor(0.75*nrow(A))
+training_indices = sample(1:nrow(A),number_train)
+train_mod = A[training_indices,]
+test_mod = A[-training_indices,]
+
+set.seed(123)
+
+rfmodel_A <- train(
+  price_usd ~., data = train_mod,method = "rf",
+  trControl = trainControl("cv", number = 5)
+  )
+
+
+predictions_A <- rfmodel_A %>% predict(test_mod)
+
+rfmodel_A$bestTune
+
+RMSE(rfpredictions, test_mod$price_usd)
+
+P[i,1]=RMSE(rfpredictions, test_mod$price_usd)
+P[i,2]=i
+}
+
+```
+```{r}
+ggplot(P,aes(x=V1))+
+  ggtitle("RMSE of 698 models")+
+  geom_histogram(color="white",bins=100)+
+  xlab("RMSE")+
+  ylab("Number of models")+
+  
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust=1))
+```
+
+\newpage
+# 5. Discussions
+
+**Interesting relations in the dataset**
+All the predictor variables in the dataset are more or less different features that are responsible for fluctuations in price and these features are improvements/upgrades that were developed over time in the automobile industry and this is probably a key point to why the fluctuations in price are time bound, implying that the "*year_produced*" variable governs the outcome variable.
+
+**Is the goal achieved**
+The goal is partially achieved. Prediction on 698 individual models is good but at the same time 324 models were eliminated as very few sales records were available. This eliminates less than 1% of the observations in the total data set which means that only 1% of the total customers are interested in these models. This also leads to several drawbacks for the price suggestion feature. The app’s/website’s suggestion feature works only if the customers model is within the dataset. Manual suggestion has to be done for the left over 324 models.
+
+**Future work**
+The fact that the initial Random Forest did not recognize well the price sets based on the car models has to be further investigated so that there is a scope of building a prediction model on 324 car models so that manual price suggestions can be eliminated. Wide range of ideas are still required to predict the price of a car which is not in the dataset at all.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
