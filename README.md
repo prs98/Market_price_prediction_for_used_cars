@@ -1,7 +1,7 @@
 # Market_price_prediction_for_used_cars
 ## Implementing the finest data science techniques in R studio to build a machine learning model that could predict the selling price of used cars with 92% accuracy.
 
-![](Images/Picture4 - Copy.png)
+![](Images/Picture4 - Copy)
 
 # Background
 Carvana is an online platform that allows users/customers to sell and buy used cars and like numerous other brands we might want to expand the customer base of the website. It is often difficult for any customer to decide on what would be the best sale price of their car. Thus we came up with an idea to work on a new feature that will be able to suggest a sale price to a selling customer. This can be accomplished by building a predictive machine learning model using the previous sales history data and use this prediction as the suggestion price. Once executed the board members will need to assess the achievement rate and performance of the site.
