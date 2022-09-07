@@ -1,5 +1,5 @@
 # Market_price_prediction_for_used_cars
-## Implementing the finest data science techniques in R studio to build a machine learning model that could predict the selling price of used cars with 92% accuracy.
+##  Implemented the N-net and Random Forest machine learning model in R studio that could predict the selling price of used cars with 72% overall accuracy, and up to 85% accuracy with notable manufacturers, creating a win-win situation to both buyers and sellers.
 
 ![](Images/Error.png)
 
